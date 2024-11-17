@@ -49,3 +49,34 @@ The target position has all cells filled with numbers and satisfies the constrai
 1 1 2
 2 2 2
 ```
+
+## Encoding
+
+Will be added later.
+
+## User documentation
+
+Basic usage: 
+```
+numberlink.py [-h] [-i INPUT] [-o OUTPUT] [-s SOLVER] [-v {0,1}]
+```
+
+Command-line options:
+
+* `-h`, `--help` : Show a help message and exit.
+* `-i INPUT`, `--input INPUT` : The instance file. Default: "input.in".
+* `-o OUTPUT`, `--output OUTPUT` : Output file for the DIMACS format (i.e. the CNF formula).
+* `-s SOLVER`, `--solver SOLVER` : The SAT solver to be used.
+*  `-v {0,1}`, `--verb {0,1}` :  Verbosity of the SAT solver used.
+
+## Example instances
+
+* `input.in`: A solvable basic 3x3 instance.
+* `input-easy.in`: A solvable easy 5x5 instance.
+* `input-medium.in`: A solvable medium 11x11 instance.
+
+More will be added later.
+
+## Experiments
+
+Will be added later.
