@@ -66,7 +66,6 @@ class Encoder:
         nums = self.ins.numbers
         positions = self.ins.positions
         
-
         vars_count = rows * cols * nums  # Total number of variables
         cnf = []
         
@@ -76,67 +75,62 @@ class Encoder:
                     self.dic[(i,j,k)] = self.dicnum
                     self.dicnum += 1
         
-        print("Ensure the start and end cells for each number are set")
         # Ensure the start and end cells for each number are set
-        
-        
         for number, (start, end) in positions.items():
             cnf.append([self._encode_variable(start[0], start[1], number), 0])
-            print(cnf[-1])
             cnf.append([self._encode_variable(end[0], end[1], number), 0])
-            print(cnf[-1])
         
-        print("Ensure exactly one value per cell")
         # Ensure exactly one value per cell
         for i in range(rows):
             for j in range(cols):
                 clause = [self._encode_variable(i, j, k) for k in range(1, nums + 1)]
                 clause.append(0)
                 cnf.append(clause)
-                print(cnf[-1])
                 clause = [-self._encode_variable(i, j, k) for k in range(1, nums + 1)]
                 clause.append(0)
                 cnf.append(clause)
-                print(cnf[-1])
-                
-        print("------")
+        
+        # Add "at most one value per cell" constraints
+        for i in range(rows):
+            for j in range(cols):
+                for k in range(1, nums + 1):
+                    for l in range(k + 1, nums + 1):
+                        cnf.append([-self._encode_variable(i, j, k), -self._encode_variable(i, j, l), 0])
+        
+        endpoints = []
         for number, (start,end) in positions.items():
+            endpoints.append(start)
+            endpoints.append(end)
+        
+        for number in range(1,nums+1):
             for i in range(rows):
                 for j in range(cols):
                     neighbors = self.get_neighbors(i, j, rows, cols)
                     # For endpoint
-                    if (i, j) == start or (i,j) == end:
+                    if (i, j) in endpoints and (i,j) in positions[number]:
                         clause = []
                         for ni, nj in neighbors:
                             clause.append(self._encode_variable(ni, nj, number))
                         clause.append(0)
                         cnf.append(list(clause))
-                        print(cnf[-1])
                         clause.pop(-1)
                         for k in range(len(clause)):
                             for l in range(k+1,len(clause)):
                                 cnf.append([-clause[k], -clause[l], 0])
-                                print(cnf[-1])
-                        print("------")
                     # for non-endpoint    
-                    else:
+                    elif (i, j) not in endpoints:
                         clause = []
-                        clause.append(-self._encode_variable(i,j,number))
                         for ni, nj in neighbors:
                             clause.append(self._encode_variable(ni, nj, number))
-                        var = clause.pop(0)
+                        var = -self._encode_variable(i,j,number)
                         for k in range(len(clause)):
                             for l in range(k+1,len(clause)):
                                 cnf.append([var,clause[k],clause[l],0])
-                                print(cnf[-1])
                         if len(clause) > 2:
-                            for k in range(len(clause)):
-                                for l in range(k+1,len(clause)):
-                                    for m in range(l+1,len(clause)):
-                                        cnf.append([var,-clause[k],-clause[l],-clause[m],0])
-                                        print("LAST: ",cnf[-1])
-                            
-                        print("------")
+                            for m in range(len(clause)):
+                                for n in range(m+1,len(clause)):
+                                    for o in range(n+1,len(clause)):
+                                        cnf.append([var,-clause[m],-clause[n],-clause[o],0])
         
         return cnf, vars_count, self.dic
 
