@@ -20,3 +20,32 @@ The following documentation is an acceptable solution format that should accompa
 # Documentation
 
 ## Problem description
+
+The **numberlink** is a logic-based pathfinding game played on a grid. Each puzzle consists of a grid where numbered pairs (start and end points) are given. The objective is to connect each pair with a continuous path, such that:
+
+1) Paths do not cross or overlap.
+
+2) Every cell on the grid is either part of a path or remains empty.
+
+The challenge lies in finding a solution that satisfies these constraints while covering all required connections. More information [here](https://en.wikipedia.org/wiki/Numberlink).
+
+An example of a valid input format is:
+
+```
+3
+3
+2
+1 2 0
+0 1 0
+2 0 0
+```
+
+where the first line is the number of rows of the grid, the second line is the number of columns of the grid, and the third line is the number of pairs of numbers to be connected.
+
+The target position has all cells filled with numbers and satisfies the constraints stated above.
+
+```
+1 2 2
+1 1 2
+2 2 2
+```
