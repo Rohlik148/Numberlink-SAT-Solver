@@ -68,25 +68,15 @@ class Encoder:
         cnf = []
 
         directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # Right, Down, Left, Up
-
+        
         print("Ensure the start and end cells for each number are set")
         # Ensure the start and end cells for each number are set
         for number, (start, end) in positions.items():
-            cnf.append([self._encode_variable(start[0], start[1], number, cols, nums), 0])
+            cnf.append([self._encode_variable(start[1], start[0], number, cols, nums), 0])
             print(cnf[-1])
-            cnf.append([self._encode_variable(end[0], end[1], number, cols, nums), 0])
+            cnf.append([self._encode_variable(end[1], end[0], number, cols, nums), 0])
             print(cnf[-1])
         
-        print("Ensure at most one number per cell")
-        # Ensure at most one number per cell
-        for row in range(rows):
-            for col in range(cols):
-                for n1 in range(1, nums + 1):
-                    for n2 in range(n1 + 1, nums + 1):
-                        cnf.append([-self._encode_variable(row, col, n1, cols, nums),
-                                    -self._encode_variable(row, col, n2, cols, nums), 0])
-                        print(cnf[-1])
-
         print("Ensure exactly one value per cell")
         # Ensure exactly one value per cell
         for i in range(rows):
@@ -95,25 +85,30 @@ class Encoder:
                 clause.append(0)
                 cnf.append(clause)
                 print(cnf[-1])
-
+                clause = [-self._encode_variable(i, j, k, cols, nums) for k in range(1, nums + 1)]
+                clause.append(0)
+                cnf.append(clause)
+                print(cnf[-1])
+        
         # Ensure path connectivity with the constraint on start, end
         print("Ensure each start/end cell has exactly one neighbor")
         endpoints = []
         for number, (start, end) in positions.items():
             for endpoint in [start, end]:
                 endpoints.append(endpoint)
+                
                 i, j = endpoint  # Coordinates of the endpoint
                 neighbors = [
                     (i + di, j + dj)
                     for di, dj in directions
                     if 0 <= i + di < rows and 0 <= j + dj < cols
                 ]
-                clause = [-self._encode_variable(i, j, number, cols, nums)]
+                clause = []
+                #clause = [-self._encode_variable(i, j, number, cols, nums)]
                 for ni, nj in neighbors:
                     clause.append(self._encode_variable(ni, nj, number, cols, nums))
                 cnf.append(clause + [0])  # End clause
                 print(cnf[-1])
-                clause.pop(0)
                 for k in range(len(clause)):
                     for l in range(k+1,len(clause)):
                         cnf.append([-clause[k],-clause[l],0])
@@ -134,15 +129,21 @@ class Encoder:
                         for ni, nj in neighbors:
                             clause.append(self._encode_variable(ni, nj, number, cols, nums))
                         cnf.append(clause + [0])
-                        print(cnf[-1])
-                        clause.pop(0)
+                        print(cnf[-1])                      
                         if len(clause) > 2:
+                            # Ensure at least two neighbors are connected
                             for k in range(len(clause)):
-                                for l in range(k+1,len(clause)):
-                                    for m in range(l+1,len(clause)):
-                                        cnf.append([-clause[k],-clause[l],-clause[m],0])
-                                        print(cnf[-1])
-
+                                for l in range(k + 1, len(clause)):
+                                    cnf.append([clause[k], clause[l], 0])
+                                    print("at least 2: ", cnf[-1])
+                            
+                            # Ensure no more than two neighbors are connected
+                            for k in range(len(clause)):
+                                for l in range(k + 1, len(clause)):
+                                    for m in range(l + 1, len(clause)):
+                                        cnf.append([-clause[k], -clause[l], -clause[m], 0])
+                                        print("no more than 2: ", cnf[-1])
+            
         return cnf, vars_count
 
     def _encode_variable(self, i, j, k, cols, nums):
@@ -169,7 +170,8 @@ class SAT_Solver:
             print(line) '''                    # print the whole output of the SAT solver to stdout, so you can see the raw output for yourself
 
         # check the returned result
-        if (result.returncode == 20):       # returncode for SAT is 10, for UNSAT is 20
+        if (result.returncode == 20): # returncode for SAT is 10, for UNSAT is 20
+            print("Unsolvable")
             return
 
         print()
