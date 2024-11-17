@@ -26,9 +26,9 @@ class Process_Input():
                     cell_val = self.grid[i][j]
                     if cell_val > 0:  
                         if cell_val not in self.positions:
-                            self.positions[cell_val] = [(j, i)]  
+                            self.positions[cell_val] = [(i, j)]  
                         else:
-                            self.positions[cell_val].append((j, i))
+                            self.positions[cell_val].append((i, j))
                 
             self.all_cells = [(i, j) for i in range(self.rows) for j in range(self.cols)]
             
@@ -76,14 +76,9 @@ class Encoder:
                     self.dic[(i,j,k)] = self.dicnum
                     self.dicnum += 1
         
-        print(self.dic)
-        
         print("Ensure the start and end cells for each number are set")
         # Ensure the start and end cells for each number are set
         
-        print("................")
-        print(positions)
-        print("................")
         
         for number, (start, end) in positions.items():
             cnf.append([self._encode_variable(start[0], start[1], number), 0])
@@ -125,10 +120,25 @@ class Encoder:
                         print("------")
                     # for non-endpoint    
                     else:
-                        pass
-        print(self.dic)
+                        clause = []
+                        clause.append(-self._encode_variable(i,j,number))
+                        for ni, nj in neighbors:
+                            clause.append(self._encode_variable(ni, nj, number))
+                        var = clause.pop(0)
+                        for k in range(len(clause)):
+                            for l in range(k+1,len(clause)):
+                                cnf.append([var,clause[k],clause[l],0])
+                                print(cnf[-1])
+                        if len(clause) > 2:
+                            for k in range(len(clause)):
+                                for l in range(k+1,len(clause)):
+                                    for m in range(l+1,len(clause)):
+                                        cnf.append([var,-clause[k],-clause[l],-clause[m],0])
+                                        print("LAST: ",cnf[-1])
+                            
+                        print("------")
         
-        return cnf, vars_count
+        return cnf, vars_count, self.dic
 
     def _encode_variable(self, i, j, k):
             return self.dic[(i,j,k)]
@@ -157,7 +167,7 @@ class SAT_Solver:
         # Call the solver and return the output
         return subprocess.run(['./' + self.solver, '-model', '-verb=' + str(self.verb), output_file_name], stdout=subprocess.PIPE)
 
-    def print_result(self, result, ins):
+    def print_result(self, result, ins, dict):
         '''for line in result.stdout.decode('utf-8').split('\n'):
             print(line) '''                    # print the whole output of the SAT solver to stdout, so you can see the raw output for yourself
 
@@ -179,10 +189,17 @@ class SAT_Solver:
                 vars = line.split(" ")
                 vars.remove("v")
                 model.extend(int(v) for v in vars)      
-        #model.remove(0) # 0 is the end of the model, just ignore it
+        model.remove(0) # 0 is the end of the model, just ignore it
         
-        print(model)
-
+        grid = [[0 for i in range(ins.cols)] for j in range(ins.rows)]
+        for var in model:
+            if var > 0:
+                for key, value in dict.items():
+                    if value == var:
+                        grid[key[0]][key[1]] = key[2]
+                        
+        for row in grid:
+            print(*row)
 
 class Numberlink():
     if __name__ == "__main__":
@@ -234,11 +251,11 @@ class Numberlink():
 
         # encode the problem to create CNF formula
         encoder = Encoder(input_processor)
-        cnf, vars_count = encoder.encode()
+        cnf, vars_count, enc_dict = encoder.encode()
 
         # call the SAT solver and get the result
         solver = SAT_Solver(args.solver, args.verb)
         result = solver.call_solver(cnf, vars_count, args.output)
 
         # interpret the result and print it in a human-readable format
-        solver.print_result(result,input_processor)
+        solver.print_result(result,input_processor, enc_dict)
