@@ -26,9 +26,9 @@ class Process_Input():
                     cell_val = self.grid[i][j]
                     if cell_val > 0:  
                         if cell_val not in self.positions:
-                            self.positions[cell_val] = [(i, j)]  
+                            self.positions[cell_val] = [(j, i)]  
                         else:
-                            self.positions[cell_val].append((i, j))
+                            self.positions[cell_val].append((j, i))
                 
             self.all_cells = [(i, j) for i in range(self.rows) for j in range(self.cols)]
             
@@ -57,98 +57,89 @@ class Process_Input():
 class Encoder:
     def __init__(self, ins) -> None:
         self.ins = ins
+        self.dic = {}
+        self.dicnum = 1
 
     def encode(self):
         rows = self.ins.rows
         cols = self.ins.cols
         nums = self.ins.numbers
         positions = self.ins.positions
+        
 
         vars_count = rows * cols * nums  # Total number of variables
         cnf = []
-
-        directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # Right, Down, Left, Up
+        
+        for i in range(rows):
+            for j in range(cols):
+                for k in range(1,nums+1):
+                    self.dic[(i,j,k)] = self.dicnum
+                    self.dicnum += 1
+        
+        print(self.dic)
         
         print("Ensure the start and end cells for each number are set")
         # Ensure the start and end cells for each number are set
+        
+        print("................")
+        print(positions)
+        print("................")
+        
         for number, (start, end) in positions.items():
-            cnf.append([self._encode_variable(start[1], start[0], number, cols, nums), 0])
+            cnf.append([self._encode_variable(start[0], start[1], number), 0])
             print(cnf[-1])
-            cnf.append([self._encode_variable(end[1], end[0], number, cols, nums), 0])
+            cnf.append([self._encode_variable(end[0], end[1], number), 0])
             print(cnf[-1])
         
         print("Ensure exactly one value per cell")
         # Ensure exactly one value per cell
         for i in range(rows):
             for j in range(cols):
-                clause = [self._encode_variable(i, j, k, cols, nums) for k in range(1, nums + 1)]
+                clause = [self._encode_variable(i, j, k) for k in range(1, nums + 1)]
                 clause.append(0)
                 cnf.append(clause)
                 print(cnf[-1])
-                clause = [-self._encode_variable(i, j, k, cols, nums) for k in range(1, nums + 1)]
+                clause = [-self._encode_variable(i, j, k) for k in range(1, nums + 1)]
                 clause.append(0)
                 cnf.append(clause)
                 print(cnf[-1])
-        
-        # Ensure path connectivity with the constraint on start, end
-        print("Ensure each start/end cell has exactly one neighbor")
-        endpoints = []
-        for number, (start, end) in positions.items():
-            for endpoint in [start, end]:
-                endpoints.append(endpoint)
                 
-                i, j = endpoint  # Coordinates of the endpoint
-                neighbors = [
-                    (i + di, j + dj)
-                    for di, dj in directions
-                    if 0 <= i + di < rows and 0 <= j + dj < cols
-                ]
-                clause = []
-                #clause = [-self._encode_variable(i, j, number, cols, nums)]
-                for ni, nj in neighbors:
-                    clause.append(self._encode_variable(ni, nj, number, cols, nums))
-                cnf.append(clause + [0])  # End clause
-                print(cnf[-1])
-                for k in range(len(clause)):
-                    for l in range(k+1,len(clause)):
-                        cnf.append([-clause[k],-clause[l],0])
-                        print(cnf[-1])
-        
-        # Ensure path connectivity for non-endpoint cells
-        print("Ensure path connectivity for non-endpoint cells")
-        for i in range(rows):
-            for j in range(cols):
-                if (i, j) not in endpoints:
-                    neighbors = [
-                        (i + di, j + dj)
-                        for di, dj in directions
-                        if 0 <= i + di < rows and 0 <= j + dj < cols
-                    ]
-                    for number, (start, end) in positions.items():
-                        clause = [-self._encode_variable(i, j, number, cols, nums)]
+        print("------")
+        for number, (start,end) in positions.items():
+            for i in range(rows):
+                for j in range(cols):
+                    neighbors = self.get_neighbors(i, j, rows, cols)
+                    # For endpoint
+                    if (i, j) == start or (i,j) == end:
+                        clause = []
                         for ni, nj in neighbors:
-                            clause.append(self._encode_variable(ni, nj, number, cols, nums))
-                        cnf.append(clause + [0])
-                        print(cnf[-1])                      
-                        if len(clause) > 2:
-                            # Ensure at least two neighbors are connected
-                            for k in range(len(clause)):
-                                for l in range(k + 1, len(clause)):
-                                    cnf.append([clause[k], clause[l], 0])
-                                    print("at least 2: ", cnf[-1])
-                            
-                            # Ensure no more than two neighbors are connected
-                            for k in range(len(clause)):
-                                for l in range(k + 1, len(clause)):
-                                    for m in range(l + 1, len(clause)):
-                                        cnf.append([-clause[k], -clause[l], -clause[m], 0])
-                                        print("no more than 2: ", cnf[-1])
-            
+                            clause.append(self._encode_variable(ni, nj, number))
+                        clause.append(0)
+                        cnf.append(list(clause))
+                        print(cnf[-1])
+                        clause.pop(-1)
+                        for k in range(len(clause)):
+                            for l in range(k+1,len(clause)):
+                                cnf.append([-clause[k], -clause[l], 0])
+                                print(cnf[-1])
+                        print("------")
+                    # for non-endpoint    
+                    else:
+                        pass
+        print(self.dic)
+        
         return cnf, vars_count
 
-    def _encode_variable(self, i, j, k, cols, nums):
-        return (i * cols * nums) + (j * nums) + k
+    def _encode_variable(self, i, j, k):
+            return self.dic[(i,j,k)]
 
+    def get_neighbors(self, i, j, rows, cols):
+        neighbors = []
+        if i > 0: neighbors.append((i - 1, j))  # Up
+        if i < rows - 1: neighbors.append((i + 1, j))  # Down
+        if j > 0: neighbors.append((i, j - 1))  # Left
+        if j < cols - 1: neighbors.append((i, j + 1))  # Right
+        return neighbors
 
 class SAT_Solver:
     def __init__(self, solver, verbosity) -> None:
@@ -156,11 +147,12 @@ class SAT_Solver:
         self.verb = verbosity
 
     def call_solver(self, cnf, vars_count, output_file_name):
-        # Print CNF into formula.cnf in DIMACS format
+        # print CNF into formula.cnf in DIMACS format
         with open(output_file_name, "w") as file:
             file.write("p cnf " + str(vars_count) + " " + str(len(cnf)) + '\n')
             for clause in cnf:
-                file.write(' '.join(str(literal) for literal in clause) + '\n')
+                file.write(' '.join(str(lit) for lit in clause) + '\n')
+
 
         # Call the solver and return the output
         return subprocess.run(['./' + self.solver, '-model', '-verb=' + str(self.verb), output_file_name], stdout=subprocess.PIPE)
@@ -181,30 +173,16 @@ class SAT_Solver:
         print()
 
         
-        # Parse the output from the SAT solver
         model = []
         for line in result.stdout.decode('utf-8').split('\n'):
-            if line.startswith("v"):
+            if line.startswith("v"):    # there might be more lines of the model, each starting with 'v'
                 vars = line.split(" ")
                 vars.remove("v")
-                model.extend(int(v) for v in vars)
-        model = [v for v in model if v > 0]  # Filter positive literals
+                model.extend(int(v) for v in vars)      
+        #model.remove(0) # 0 is the end of the model, just ignore it
         
-        print("model:", model)
+        print(model)
 
-        # Decode the model into the grid
-        grid = [[0 for _ in range(ins.cols)] for _ in range(ins.rows)]
-        for var in model:
-            var -= 1
-            k = var % ins.numbers + 1
-            j = (var // ins.numbers) % ins.cols
-            i = var // (ins.numbers * ins.cols)
-            grid[i][j] = k
-
-        # Print the grid
-        print("\nThe complete grid is:")
-        for row in grid:
-            print(" ".join(map(str, row)))
 
 class Numberlink():
     if __name__ == "__main__":
